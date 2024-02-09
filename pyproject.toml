@@ -7,12 +7,14 @@ line-length = 79
 target-version = ["py310"]
 
 [tool.pytest.ini_options]
-markers = [ ]
+pythonpath = [
+  "."
+]
 
 [project]
 name = "fordoctest"
 version = "0.0.1a"
-authors = [{name = "Benelli, Federico Ezequiel", email = "federico.benelli@mi.unc.edu.ar"}]
+authors = [ {name = "Benelli, Federico Ezequiel", email = "federico.benelli@mi.unc.edu.ar"}]
 license = {text = "The MPL License"}
 readme = "README.md"
 description = "Assure that your Fortran project is correctly documented."

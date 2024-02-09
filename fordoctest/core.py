@@ -7,34 +7,46 @@ import warnings
 
 import ford
 
-from fordoctest.warns import DocumentationWarning
+from ford.fortran_project import Project
 
-
-settings, _ = ford.settings.load_markdown_settings(
-    "doc", "ford-front-matter.md"
+from fordoctest.warns import (
+    DocumentationWarning,
+    ProcedureDocumentationWarning,
 )
-project = ford.fortran_project.Project(settings)
 
-# project.files[0].source_file.path
+from abc import ABC, abstractmethod
+import os
 
 
-class ForDocTester:
-    """Documentation tester object."""
+class DocumentationTester(ABC):
+
+    @abstractmethod
+    def analyze(self):
+        raise NotImplementedError
+
+
+class FordDocumentationTester(DocumentationTester):
+    """Documentation tester object.
+
+    Test that all the modules and procedures are fully documented.
+
+    Once initialized uses `ford`'s argument parser
+    """
 
     def __init__(
         self,
-        ford_project_file=None,
-        ford_project=None,
-        fpm_toml_file=None,
-        max_modules_per_file=None,
+        max_modules_per_file=1,
     ):
 
-        self.project = ford_project
         self.max_modules = max_modules_per_file
 
+        proj_data, proj_docs = ford.initialize()
+        self.project = ford.fortran_project.Project(proj_data)
+
     def analyze(self):
-        """ """
-        for file in project.files:
+        """Search for undocumented modules and procedures."""
+
+        for file in self.project.files:
             print("Analyizing...", file.source_file.path)
 
             if len(file.modules) > self.max_modules:
@@ -47,13 +59,19 @@ class ForDocTester:
                 )
 
             for mod in file.modules:
-                for fun in [*mod.functions, *mod.subroutines]:
-                    for arg in fun.args:
+                if not mod.doc_list:
+                    warnings.warn("Undocumented module", DocumentationWarning)
+
+                for procedure in [*mod.functions, *mod.subroutines]:
+                    if not procedure.doc_list:
+                        warnings.warn("", ProcedureDocumentationWarning)
+
+                    for arg in procedure.args:
                         if not arg.doc_list:
                             warnings.warn(
                                 (
                                     f"Undocumented variable {arg} "
-                                    f"at {mod.name}::{fun.name}"
+                                    f"at {mod.name}::{procedure.name}"
                                 ),
                                 DocumentationWarning,
                             )
