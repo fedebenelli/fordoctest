@@ -34,10 +34,11 @@ The output of `fordoctest will be something like:"
 ![example output](docs/media/example_warnings.png)
 
 ### What it _aims_ to do
-`fordoctest` aims to be a complete tool that can assure that all the code is
-correctly documented.  And maybe also include extra checks like file headers,
-file naming checks, usage with other tools beside FORD, like Doxygen and Sphinx.
-We'll consider `fordoctest` to be in beta-stage once:
+`fordoctest` aims to be a complete tool used in Fortran projects CI systems that
+can assure that all the code is correctly documented, and maybe also include
+extra checks like file headers, file naming checks, usage with other tools
+beside FORD, like Doxygen and Sphinx.  We'll consider `fordoctest` to be in
+beta-stage once:
 
 - [ ] It becames FORD agnostic (right now it fully depends on the FORD cli
       parser so it's hard to easy add up methods)
