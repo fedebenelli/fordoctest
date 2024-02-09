@@ -1,0 +1,38 @@
+[build-system]
+build-backend = "setuptools.build_meta"
+requires = ["setuptools", "wheel"]
+
+[tool.black]
+line-length = 79
+target-version = ["py310"]
+
+[tool.pytest.ini_options]
+markers = [ ]
+
+[project]
+name = "fordoctest"
+version = "0.0.1a"
+authors = [{name = "Benelli, Federico Ezequiel", email = "federico.benelli@mi.unc.edu.ar"}]
+license = {text = "The MPL License"}
+readme = "README.md"
+description = "Assure that your Fortran project is correctly documented."
+keywords = ["Fortran", "Testing", "Documentation"]
+classifiers = [
+    "Development Status :: 1 - Planning",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MPL License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Fortran :: 77",
+    "Programming Language :: Fortran :: 95",
+    "Programming Language :: Fortran :: 2003",
+    "Programming Language :: Fortran :: 2008",
+    "Programming Language :: Fortran :: 2018",
+    "Topic :: Scientific/Engineering",
+]
+
+urls = {Homepage = "https://github.com/fedebenelli/fordoctest"}
+
+dependencies = [
+    'ford >= 7.0.5'
+]
