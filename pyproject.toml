@@ -32,9 +32,11 @@ classifiers = [
     "Programming Language :: Fortran :: 2018",
     "Topic :: Scientific/Engineering",
 ]
-
 urls = {Homepage = "https://github.com/fedebenelli/fordoctest"}
-
 dependencies = [
     'ford >= 7.0.5'
 ]
+
+[project.scripts]
+fordoctest = "fordoctest.command_line:main"
+

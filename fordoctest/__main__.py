@@ -1,6 +1,3 @@
-from fordoctest import FordDocumentationTester
+from command_line import main
 
-
-if __name__ == "__main__":
-    tester = FordDocumentationTester()
-    tester.analyze()
+main()

@@ -29,6 +29,9 @@ occur:
     - Modules procedures
     - Procedures arguments
 
+The output of `fordoctest will be something like:"
+
+![example output](docs/media/example_warnings.png)
 
 ### What it _aims_ to do
 `fordoctest` aims to be a complete tool that can assure that all the code is
