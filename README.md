@@ -42,6 +42,7 @@ We'll consider `fordoctest` to be in beta-stage once:
       not included yet, derived types)
 - [ ] Include documentation restrictions (like forcing imperative verbs in a 
       procedure documentation)
+- [ ] Fully tested with coverage of at least 90%
 
 ## Installation
 Since this is still an alpha release, we haven't yet released an installable
