@@ -5,20 +5,30 @@ from warnings import warn
 
 
 class DocumentationWarning(Warning):
-    ...
-
-
-class ProcedureDocumentationWarning(DocumentationWarning):
-    def __init__(self, message):
-        self.message = message
-
-    def __str__(self):
-        return repr(self.message)
+    """DocumentationWarning object."""
 
 
 def warn_module(file, module):
-    warn(f"Undocumented Module {file}::{module}")
+    """Warn about an undocumented module."""
+    warn(
+        f"Undocumented Module {file.name}::{module.name}", DocumentationWarning
+    )
 
 
 def warn_procedure(file, module, procedure):
-    warn(f"Undocumented Procedure {file}::{module}::{procedure}")
+    """ """
+    warn(
+        f"Undocumented Procedure {file.name}::{module.name}::{procedure.name}",
+        DocumentationWarning,
+    )
+
+
+def warn_arg(file, module, procedure, arg):
+    """ """
+    warn(
+        (
+            f"Undocumented argument {arg}"
+            f"{file.name}::{module.name}::{procedure.name}"
+        ),
+        DocumentationWarning,
+    )

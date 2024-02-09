@@ -9,7 +9,9 @@ import ford
 
 from fordoctest.warns import (
     DocumentationWarning,
-    ProcedureDocumentationWarning,
+    warn_module,
+    warn_procedure,
+    warn_arg
 )
 
 from abc import ABC, abstractmethod
@@ -27,7 +29,8 @@ class FordDocumentationTester(DocumentationTester):
 
     Test that all the modules and procedures are fully documented.
 
-    Once initialized uses `ford`'s argument parser
+    Upon initializatoin it uses `ford`'s argument parser to obtain
+    all the relevant information.
     """
 
     def __init__(
@@ -46,6 +49,11 @@ class FordDocumentationTester(DocumentationTester):
         for file in self.project.files:
             print("Analyizing...", file.source_file.path)
 
+            self.analyize_procedures(
+                file, procedures=[*file.functions, *file.subroutines], mod=None
+            )
+
+            # Limit the ammount of modules per file
             if len(file.modules) > self.max_modules:
                 warnings.warn(
                     (
@@ -57,18 +65,19 @@ class FordDocumentationTester(DocumentationTester):
 
             for mod in file.modules:
                 if not mod.doc_list:
-                    warnings.warn("Undocumented module", DocumentationWarning)
+                    warn_module(file, mod)
 
-                for procedure in [*mod.functions, *mod.subroutines]:
-                    if not procedure.doc_list:
-                        warnings.warn("", ProcedureDocumentationWarning)
+                self.analyize_procedures(
+                    file, [*mod.functions, *mod.subroutines], mod
+                )
 
-                    for arg in procedure.args:
-                        if not arg.doc_list:
-                            warnings.warn(
-                                (
-                                    f"Undocumented variable {arg} "
-                                    f"at {mod.name}::{procedure.name}"
-                                ),
-                                DocumentationWarning,
-                            )
+    def analyize_procedures(self, file, procedures, mod=None):
+        """Test procedures documentation."""
+
+        for procedure in procedures:
+            if not procedure.doc_list:
+                warn_procedure(file, mod, procedure)
+
+            for arg in procedure.args:
+                if not arg.doc_list:
+                    warn_arg(file, mod, procedure, arg)

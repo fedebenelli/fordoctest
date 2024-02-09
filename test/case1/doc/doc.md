@@ -1,8 +1,8 @@
-project: Yaeos
-summary: Yet another Equation of State (library)
-project_github: https://github.com/fedebenelli/yaeos
-author: Federico Benelli
-author_description: PhD student with focus on reservoir PVT simulation.
+project: case1
+summary: some example
+project_github: https://github.com/fedebenelli/fordoctest
+author: user
+author_description: example_user
 github: https://github.com/fedebenelli
 src_dir: ..
 exclude_dir: ../test ../doc
