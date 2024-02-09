@@ -4,7 +4,8 @@
 from warnings import warn
 
 
-class DocumentationWarning(Warning): ...
+class DocumentationWarning(Warning):
+    ...
 
 
 class ProcedureDocumentationWarning(DocumentationWarning):

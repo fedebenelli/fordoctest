@@ -7,15 +7,12 @@ import warnings
 
 import ford
 
-from ford.fortran_project import Project
-
 from fordoctest.warns import (
     DocumentationWarning,
     ProcedureDocumentationWarning,
 )
 
 from abc import ABC, abstractmethod
-import os
 
 
 class DocumentationTester(ABC):
