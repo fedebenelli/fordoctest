@@ -3,15 +3,16 @@
 Fortran documentation tester.
 """
 
-import warnings
-
 import ford
 
-from fordoctest.warns import (
-    DocumentationWarning,
-    warn_module,
-    warn_procedure,
-    warn_arg
+from fordoctest.errors import (
+    DocumentationError,
+    raise_module,
+    raise_iso_procedure,
+    raise_iso_arg,
+    raise_mod_procedure,
+    raise_mod_arg,
+    raise_prog
 )
 
 from abc import ABC, abstractmethod
@@ -29,7 +30,7 @@ class FordDocumentationTester(DocumentationTester):
 
     Test that all the modules and procedures are fully documented.
 
-    Upon initializatoin it uses `ford`'s argument parser to obtain
+    Upon initialization it uses `ford`'s argument parser to obtain
     all the relevant information.
     """
 
@@ -47,25 +48,32 @@ class FordDocumentationTester(DocumentationTester):
         """Search for undocumented modules and procedures."""
 
         for file in self.project.files:
-            print("Analyizing...", file.source_file.path)
+            print("Analyzing...", file.source_file.path)
 
             self.analyize_procedures(
                 file, procedures=[*file.functions, *file.subroutines], mod=None
             )
 
+            for prog in file.programs:
+                if not prog.doc_list:
+                    raise_prog(file, prog)
+                
+                self.analyize_procedures(
+                    file, [*prog.functions, *prog.subroutines], mod=prog
+                )
+
             # Limit the ammount of modules per file
             if len(file.modules) > self.max_modules:
-                warnings.warn(
+                raise DocumentationError(
                     (
                         "There should not be more than one "
                         "module defined in a file!"
                     ),
-                    DocumentationWarning,
                 )
 
             for mod in file.modules:
                 if not mod.doc_list:
-                    warn_module(file, mod)
+                    raise_module(file, mod)
 
                 self.analyize_procedures(
                     file, [*mod.functions, *mod.subroutines], mod
@@ -76,8 +84,15 @@ class FordDocumentationTester(DocumentationTester):
 
         for procedure in procedures:
             if not procedure.doc_list:
-                warn_procedure(file, mod, procedure)
+                if mod:
+                    raise_mod_procedure(file, mod, procedure)
+                else:
+                    raise_iso_procedure(file, procedure)
+
 
             for arg in procedure.args:
                 if not arg.doc_list:
-                    warn_arg(file, mod, procedure, arg)
+                    if mod:
+                        raise_mod_arg(file, mod, procedure, arg)
+                    else:
+                        raise_iso_arg(file, procedure, arg)

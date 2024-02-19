@@ -39,4 +39,3 @@ dependencies = [
 
 [project.scripts]
 fordoctest = "fordoctest.command_line:main"
-
