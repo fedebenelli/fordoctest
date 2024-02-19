@@ -1,12 +1,12 @@
-from fordoctest import FordDocumentationTester
+from fordoctest import FordDocumentationTester, DocumentationWarning
 
 from unittest.mock import patch
 
+import pytest
 
-def test_analyize():
-    with patch('sys.argv', ['case1/doc/doc.md']):
-        import sys
-        print(sys.argv)
+
+@patch('sys.argv', ['', 'test/case1/doc/doc.md'])
+def test_undocumented():
+    with pytest.warns(DocumentationWarning):
         tester = FordDocumentationTester()
-        print("coso")
         tester.analyze()
