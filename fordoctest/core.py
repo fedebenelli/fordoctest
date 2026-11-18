@@ -3,96 +3,404 @@
 Fortran documentation tester.
 """
 
-import ford
+import re
+from abc import ABC, abstractmethod
+from typing import Iterable, List
 
 from fordoctest.errors import (
     DocumentationError,
-    raise_module,
-    raise_iso_procedure,
-    raise_iso_arg,
-    raise_mod_procedure,
-    raise_mod_arg,
-    raise_prog
+    DocumentationIssue,
+    non_imperative,
+    undocumented,
+    undocumented_argument,
 )
+from fordoctest.loader import load_project
 
-from abc import ABC, abstractmethod
+# Conservative heuristic: only flag first words that are clearly not
+# imperative. Anything else is left alone to avoid false positives.
+NON_IMPERATIVE_WORDS = frozenset(
+    {
+        "a",
+        "an",
+        "the",
+        "this",
+        "that",
+        "these",
+        "those",
+        "it",
+        "we",
+        "you",
+        "they",
+        "he",
+        "she",
+        "is",
+        "are",
+        "was",
+        "were",
+        "will",
+        "would",
+        "can",
+        "could",
+        "should",
+        "may",
+        "might",
+        "must",
+        "has",
+        "have",
+        "had",
+        "does",
+        "computes",
+        "calculates",
+        "performs",
+        "returns",
+        "gives",
+        "gets",
+        "sets",
+        "creates",
+        "checks",
+        "tests",
+        "defines",
+        "describes",
+        "provides",
+        "contains",
+        "uses",
+    }
+)
 
 
 class DocumentationTester(ABC):
+    """Base class for documentation testers."""
 
     @abstractmethod
-    def analyze(self):
+    def find_issues(self) -> List[DocumentationIssue]:
+        """Return every documentation issue found in the project."""
         raise NotImplementedError
+
+    def analyze(self) -> None:
+        """Raise if the project contains any documentation issue."""
+        issues = self.find_issues()
+        if issues:
+            raise DocumentationError(issues)
 
 
 class FordDocumentationTester(DocumentationTester):
-    """Documentation tester object.
+    """Documentation tester backed by a parsed FORD project.
 
-    Test that all the modules and procedures are fully documented.
-
-    Upon initialization it uses `ford`'s argument parser to obtain
-    all the relevant information.
+    Use :meth:`from_project_file` or :meth:`from_fpm` to build an instance.
     """
 
     def __init__(
         self,
-        max_modules_per_file=1,
-    ):
-
+        project,
+        max_modules_per_file: int = 1,
+        check_imperative: bool = False,
+    ) -> None:
+        self.project = project
         self.max_modules = max_modules_per_file
+        self.check_imperative = check_imperative
 
-        proj_data, proj_docs = ford.initialize()
-        self.project = ford.fortran_project.Project(proj_data)
+    @classmethod
+    def from_project_file(
+        cls,
+        path,
+        max_modules_per_file: int = 1,
+        check_imperative: bool = False,
+    ) -> "FordDocumentationTester":
+        """Build a tester from a FORD markdown project file."""
+        return cls(
+            load_project(path),
+            max_modules_per_file=max_modules_per_file,
+            check_imperative=check_imperative,
+        )
 
-    def analyze(self):
-        """Search for undocumented modules and procedures."""
+    @classmethod
+    def from_fpm(
+        cls,
+        path,
+        max_modules_per_file: int = 1,
+        check_imperative: bool = False,
+    ) -> "FordDocumentationTester":
+        """Build a tester from an ``fpm.toml`` file or directory."""
+        return cls(
+            load_project(path, fpm=True),
+            max_modules_per_file=max_modules_per_file,
+            check_imperative=check_imperative,
+        )
+
+    def find_issues(self) -> List[DocumentationIssue]:
+        """Search for undocumented entities and style problems."""
+        issues: List[DocumentationIssue] = []
+        seen = set()
 
         for file in self.project.files:
-            print("Analyzing...", file.source_file.path)
+            self._check_module_count(file, issues, seen)
 
-            self.analyize_procedures(
-                file, procedures=[*file.functions, *file.subroutines], mod=None
+            for module in file.modules:
+                self._check_unit(
+                    file,
+                    module,
+                    "Module",
+                    (),
+                    issues,
+                    seen,
+                )
+
+            for submodule in file.submodules:
+                self._check_unit(
+                    file,
+                    submodule,
+                    "Submodule",
+                    (),
+                    issues,
+                    seen,
+                )
+
+            for program in file.programs:
+                self._check_unit(
+                    file,
+                    program,
+                    "Program",
+                    (),
+                    issues,
+                    seen,
+                )
+
+            self._check_procedures(
+                file,
+                [*file.functions, *file.subroutines],
+                (),
+                issues,
+                seen,
             )
 
-            for prog in file.programs:
-                if not prog.doc_list:
-                    raise_prog(file, prog)
-                
-                self.analyize_procedures(
-                    file, [*prog.functions, *prog.subroutines], mod=prog
-                )
+        return issues
 
-            # Limit the ammount of modules per file
-            if len(file.modules) > self.max_modules:
-                raise DocumentationError(
-                    (
-                        "There should not be more than one "
-                        "module defined in a file!"
+    def _check_module_count(self, file, issues, seen) -> None:
+        if self.max_modules is None:
+            return
+        if len(file.modules) <= self.max_modules:
+            return
+
+        issue = DocumentationIssue(
+            kind="Module count",
+            location=file.name,
+            message=(
+                f"{file.name} defines {len(file.modules)} modules; "
+                f"at most {self.max_modules} allowed"
+            ),
+        )
+        self._add(issues, seen, issue, ("module-count", file.path))
+
+    def _check_unit(
+        self,
+        file,
+        unit,
+        kind: str,
+        parents: Iterable[str],
+        issues,
+        seen,
+    ) -> None:
+        key = ("unit", id(unit))
+        if key in seen:
+            return
+        seen.add(key)
+
+        parents = tuple(parents)
+        if not unit.doc_list:
+            self._add(
+                issues,
+                seen,
+                undocumented(kind, file, unit.name, parents),
+                ("undocumented", key),
+            )
+
+        unit_parents = (*parents, unit.name)
+        self._check_types(file, unit, unit_parents, issues, seen)
+        self._check_interfaces(file, unit, unit_parents, issues, seen)
+        self._check_procedures(
+            file,
+            [*unit.functions, *unit.subroutines],
+            unit_parents,
+            issues,
+            seen,
+        )
+
+        for procedure in getattr(unit, "modprocedures", []):
+            self._check_procedures(
+                file,
+                [procedure],
+                unit_parents,
+                issues,
+                seen,
+            )
+
+    def _check_types(
+        self,
+        file,
+        container,
+        parents,
+        issues,
+        seen,
+    ) -> None:
+        for derived_type in getattr(container, "types", []):
+            key = ("type", id(derived_type))
+            if key in seen:
+                continue
+            seen.add(key)
+
+            if not derived_type.doc_list:
+                self._add(
+                    issues,
+                    seen,
+                    undocumented(
+                        "Derived type", file, derived_type.name, parents
                     ),
+                    ("undocumented", key),
                 )
 
-            for mod in file.modules:
-                if not mod.doc_list:
-                    raise_module(file, mod)
-
-                self.analyize_procedures(
-                    file, [*mod.functions, *mod.subroutines], mod
+            type_parents = (*parents, derived_type.name)
+            for component in derived_type.variables:
+                if component.doc_list:
+                    continue
+                self._add(
+                    issues,
+                    seen,
+                    undocumented(
+                        "Type component", file, component.name, type_parents
+                    ),
+                    ("undocumented", "component", id(component)),
                 )
 
-    def analyize_procedures(self, file, procedures, mod=None):
-        """Test procedures documentation."""
+            for procedure in derived_type.boundprocs:
+                if procedure.doc_list:
+                    continue
+                self._add(
+                    issues,
+                    seen,
+                    undocumented(
+                        "Type-bound procedure",
+                        file,
+                        procedure.name,
+                        type_parents,
+                    ),
+                    ("undocumented", "boundproc", id(procedure)),
+                )
 
+    def _check_interfaces(
+        self,
+        file,
+        container,
+        parents,
+        issues,
+        seen,
+    ) -> None:
+        interfaces = [
+            *getattr(container, "interfaces", []),
+            *getattr(container, "absinterfaces", []),
+        ]
+        for interface in interfaces:
+            key = ("interface", id(interface))
+            if key in seen:
+                continue
+            seen.add(key)
+
+            name = interface.name or "<anonymous>"
+            if not interface.doc_list:
+                self._add(
+                    issues,
+                    seen,
+                    undocumented("Interface", file, name, parents),
+                    ("undocumented", key),
+                )
+
+            procedures = []
+            procedure = getattr(interface, "procedure", None)
+            if procedure is not None:
+                procedures.append(procedure)
+            procedures.extend(getattr(interface, "functions", []) or [])
+            procedures.extend(getattr(interface, "subroutines", []) or [])
+
+            for procedure in procedures:
+                procedure_parents = (*parents, name)
+                for argument in getattr(procedure, "args", []):
+                    if argument.doc_list:
+                        continue
+                    self._add(
+                        issues,
+                        seen,
+                        undocumented_argument(
+                            file,
+                            argument.name,
+                            procedure_parents,
+                        ),
+                        ("undocumented", "argument", id(argument)),
+                    )
+
+    def _check_procedures(
+        self,
+        file,
+        procedures,
+        parents,
+        issues,
+        seen,
+    ) -> None:
         for procedure in procedures:
+            key = ("procedure", id(procedure))
+            if key in seen:
+                continue
+            seen.add(key)
+
             if not procedure.doc_list:
-                if mod:
-                    raise_mod_procedure(file, mod, procedure)
-                else:
-                    raise_iso_procedure(file, procedure)
+                self._add(
+                    issues,
+                    seen,
+                    undocumented("Procedure", file, procedure.name, parents),
+                    ("undocumented", key),
+                )
+            elif self.check_imperative:
+                word = _first_documentation_word(procedure.doc_list)
+                if word in NON_IMPERATIVE_WORDS:
+                    self._add(
+                        issues,
+                        seen,
+                        non_imperative(
+                            file,
+                            procedure.name,
+                            word,
+                            parents,
+                        ),
+                        ("style", key),
+                    )
+
+            procedure_parents = (*parents, procedure.name)
+            for argument in getattr(procedure, "args", []):
+                if argument.doc_list:
+                    continue
+                self._add(
+                    issues,
+                    seen,
+                    undocumented_argument(
+                        file,
+                        argument.name,
+                        procedure_parents,
+                    ),
+                    ("undocumented", "argument", id(argument)),
+                )
+
+    @staticmethod
+    def _add(issues, seen, issue, key) -> None:
+        if key in seen:
+            return
+        seen.add(key)
+        issues.append(issue)
 
 
-            for arg in procedure.args:
-                if not arg.doc_list:
-                    if mod:
-                        raise_mod_arg(file, mod, procedure, arg)
-                    else:
-                        raise_iso_arg(file, procedure, arg)
+def _first_documentation_word(doc_list) -> str:
+    text = " ".join(doc_list).strip()
+    if not text:
+        return ""
+    text = text.lstrip("#*-_` ")
+    match = re.search(r"[A-Za-z][A-Za-z'-]*", text)
+    if match is None:
+        return ""
+    return match.group(0).lower()

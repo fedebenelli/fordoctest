@@ -1,57 +1,116 @@
 # fordoctest
-Assure Fortran documentation consistence.
 
-## Motivation
-As a project increases in size, it is harder to track the quality of the present
-code. In the case of functionality unit testing and coverage metrics can be
-enough to ensure there are no problems. But keeping track of correct
-documentation needs even more meticulous work, external tools can be used to
-help this process (like ![pydoctest](https://github.com/jepperaskdk/pydoctest))
-in Python. `fordoctest` aims to be an equivalent tool for Fortran documentation.
+Assure Fortran documentation consistency.
 
+`fordoctest` uses [FORD](https://forddocs.readthedocs.io/) to parse a Fortran
+project and reports entities that are missing documentation. It is the Fortran
+counterpart of tools such as `pydoctest`.
 
-## What does it do?
+## Installation
 
-### Running
+```bash
+pip install fordoctest
+```
+
+For development:
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements_dev.txt
+```
+
+## Usage
 
 ```bash
 fordoctest <ford_project_file> [ford_flags]
+fordoctest <fpm.toml or fpm project directory>
 ```
 
-Right now `fordoctest` is in a pre-alpha state, it will check on all the source
-files included in a FORD file and send a warning if any of the following cases
-occur:
+Examples:
 
-- More than one module per-file
-- Undocumented:
-    - Isolated procedures
-    - Modules
-    - Modules procedures
-    - Procedures arguments
+```bash
+fordoctest doc/doc.md
+fordoctest fpm.toml
+fordoctest --max-modules 2 doc/doc.md
+fordoctest --check-imperative doc/doc.md
+```
 
-The output of `fordoctest will be something like:"
+FORD options such as `-d`, `-m`, `--exclude` and `--config` are forwarded to
+FORD when a markdown project file is used. Run `fordoctest --help` for the
+fordoctest-specific options.
+
+### Exit codes
+
+| Code | Meaning |
+| --- | --- |
+| 0 | All checks passed |
+| 1 | At least one documentation issue was found |
+| 2 | The project could not be loaded or the arguments were invalid |
+
+Issues are written to standard error, one per line.
+
+## Project configuration
+
+For a FORD markdown project file, use the usual FORD metadata block:
+
+```markdown
+project: My project
+src_dir: src
+preprocess: false
+```
+
+For an fpm project, settings can be placed in the `[extra.ford]` table of
+`fpm.toml`. Without that table, `fordoctest` checks the standard fpm source
+directories (`src`, `app`, `test`, `example`, `examples` and `benchmark`).
+
+## Checks
+
+By default `fordoctest` reports:
+
+- More than one module per source file (`--max-modules` changes the limit).
+- Undocumented modules, submodules and programs.
+- Undocumented file-level, module and program procedures.
+- Undocumented procedure arguments.
+- Undocumented derived types, type components and type-bound procedures.
+- Undocumented interfaces.
+
+Pass `--check-imperative` to additionally flag procedure documentation whose
+first word is a clear third-person or non-imperative form (for example
+"Computes..." instead of "Compute..."). This check is a conservative heuristic
+and is disabled by default.
+
+Example output:
 
 ![example output](docs/media/example_warnings.png)
 
-### What it _aims_ to do
-`fordoctest` aims to be a complete tool used in Fortran projects CI systems that
-can assure that all the code is correctly documented, and maybe also include
-extra checks like file headers, file naming checks, usage with other tools
-beside FORD, like Doxygen and Sphinx.  We'll consider `fordoctest` to be in
-beta-stage once:
+## Limitations
 
-- [ ] It becames FORD agnostic (right now it fully depends on the FORD cli
-      parser so it's hard to easy add up methods)
-- [ ] Includes documentation checks of all the different kinds entities (like
-      not included yet, derived types)
-- [ ] Include documentation restrictions (like forcing imperative verbs in a 
-      procedure documentation)
-- [ ] Fully tested with coverage of at least 90%
+- `fordoctest` depends on FORD's parser and project model.
+- The imperative-verb check only uses a small English word list.
+- Module-level variables and local variables inside procedures are not checked.
+- There is no automatic documentation fixer.
 
-## Installation
-Since this is still an alpha release, we haven't yet released an installable
-on PyPI, but the development version can be installed with `pip` with:
+## Development
 
 ```bash
-pip install git+ssh://git@github.com/fedebenelli/fordoctest.git
+black --check .
+pytest --cov=fordoctest --cov-report=term-missing --cov-fail-under=90
+python -m build
+twine check dist/*
 ```
+
+The test suite uses temporary FORD projects and does not require a Fortran
+compiler because preprocessing is disabled in the fixtures.
+
+### Beta checklist
+
+- [x] Check the main Fortran entity kinds, including derived types,
+      interfaces and submodules.
+- [x] Include optional documentation restrictions (imperative verbs).
+- [x] Test suite with at least 90% coverage.
+- [ ] Become independent of FORD's CLI parser (not planned for 0.1).
+
+## License
+
+Mozilla Public License 2.0. See [LICENSE](LICENSE).

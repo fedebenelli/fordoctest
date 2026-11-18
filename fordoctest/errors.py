@@ -1,57 +1,75 @@
-"""Custom Error messages.
-"""
+"""Documentation issues and the public exception type."""
+
+from dataclasses import dataclass
+from typing import Iterable, Sequence, Union
+
+
+@dataclass(frozen=True)
+class DocumentationIssue:
+    """A single missing or malformed piece of documentation."""
+
+    kind: str
+    location: str
+    message: str
+
+    def __str__(self) -> str:
+        return self.message
 
 
 class DocumentationError(ValueError):
-    """DocumentationError object."""
+    """Raised when a project contains documentation issues."""
+
+    def __init__(
+        self, issues: Union[str, Sequence[DocumentationIssue]]
+    ) -> None:
+        if isinstance(issues, str):
+            issues = [issues]
+        self.issues = list(issues)
+        super().__init__("\n".join(str(issue) for issue in self.issues))
 
 
-def raise_module(file, module):
-    """raise about an undocumented module."""
-    raise DocumentationError(
-        f"Undocumented Module {file.name}::{module.name}",
+def undocumented(
+    kind: str,
+    file,
+    entity: str,
+    parents: Iterable[str] = (),
+) -> DocumentationIssue:
+    """Build an issue for an undocumented entity."""
+    location = "::".join([file.name, *parents, entity])
+    return DocumentationIssue(
+        kind=kind,
+        location=location,
+        message=f"Undocumented {kind} {location}",
     )
 
 
-def raise_iso_procedure(file, procedure):
-    """ """
-    raise DocumentationError(
-        f"Undocumented Procedure {file.name}::{procedure.name}",
+def undocumented_argument(
+    file,
+    argument: str,
+    parents: Iterable[str] = (),
+) -> DocumentationIssue:
+    """Build an issue for an undocumented procedure argument."""
+    location = "::".join([file.name, *parents])
+    return DocumentationIssue(
+        kind="Argument",
+        location=location,
+        message=f"Undocumented argument '{argument}' in {location}",
     )
 
 
-def raise_mod_procedure(file, module, procedure):
-    """ """
-    raise DocumentationError(
-        f"Undocumented Procedure {file.name}::{module.name}::{procedure.name}",
-    )
-
-
-def raise_iso_arg(file, procedure, arg):
-    """ """
-    raise DocumentationError(
-        (
-            f"Undocumented argument {arg.name}"
-            f"@{file.name}::{procedure.name}"
-        ),
-    )
-
-
-def raise_mod_arg(file, module, procedure, arg):
-    """ """
-    raise DocumentationError(
-        (
-            f"Undocumented argument {arg.name}"
-            f"@{file.name}::{module.name}::{procedure.name}"
-        ),
-    )
-
-
-def raise_prog(file, program):
-    """ """
-    raise DocumentationError(
-        (
-            f"Undocumented program {program.name}"
-            f"@{file.name}::{program.name}"
+def non_imperative(
+    file,
+    procedure: str,
+    word: str,
+    parents: Iterable[str] = (),
+) -> DocumentationIssue:
+    """Build an issue for documentation that is not imperative."""
+    location = "::".join([file.name, *parents, procedure])
+    return DocumentationIssue(
+        kind="Documentation style",
+        location=location,
+        message=(
+            f"Procedure {location} should start with an imperative verb; "
+            f"found '{word}'"
         ),
     )

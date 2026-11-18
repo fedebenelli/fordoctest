@@ -1,6 +1,2 @@
 -r requirements.txt
-.
-black
-tox
-ipython
-pytest
+-e .[dev]

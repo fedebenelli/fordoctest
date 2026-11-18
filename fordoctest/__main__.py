@@ -1,3 +1,4 @@
-from command_line import main
+from fordoctest.command_line import main
 
-main()
+if __name__ == "__main__":
+    raise SystemExit(main())

@@ -1,0 +1,2 @@
+module m
+end module
