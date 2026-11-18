@@ -34,11 +34,16 @@ fordoctest doc/doc.md
 fordoctest fpm.toml
 fordoctest --max-modules 2 doc/doc.md
 fordoctest --check-imperative doc/doc.md
+fordoctest --color always doc/doc.md
 ```
 
 FORD options such as `-d`, `-m`, `--exclude` and `--config` are forwarded to
 FORD when a markdown project file is used. Run `fordoctest --help` for the
 fordoctest-specific options.
+
+Output is colourised automatically when the terminal supports it. Use
+`--color always` or `--color never` to force it, or set `NO_COLOR` to disable
+colour in auto mode.
 
 ### Exit codes
 
@@ -60,9 +65,22 @@ src_dir: src
 preprocess: false
 ```
 
-For an fpm project, settings can be placed in the `[extra.ford]` table of
+For an fpm project, FORD settings can be placed in the `[extra.ford]` table of
 `fpm.toml`. Without that table, `fordoctest` checks the standard fpm source
 directories (`src`, `app`, `test`, `example`, `examples` and `benchmark`).
+
+Tool-specific options can be stored in `[extra.fordoctest]`. The historical
+spelling `[extra.fordoxtest]` is accepted as an alias:
+
+```toml
+[extra.fordoctest]
+max_modules = 2
+check_imperative = true
+color = "auto"  # auto, always or never
+```
+
+Command-line flags take precedence over these values. Unknown keys are
+rejected so a typo cannot silently disable a check.
 
 ## Checks
 
@@ -79,6 +97,14 @@ Pass `--check-imperative` to additionally flag procedure documentation whose
 first word is a clear third-person or non-imperative form (for example
 "Computes..." instead of "Compute..."). This check is a conservative heuristic
 and is disabled by default.
+
+### Doxygen comments
+
+FORD's Doxygen support is used directly: `!>` block comments (the `predocmark`
+setting) are read as documentation, `@param` fills in argument documentation
+and a `@brief`-only comment still counts as documentation. Trailing `!<`
+comments are not supported by FORD, so document arguments with `@param`
+instead.
 
 Example output:
 

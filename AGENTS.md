@@ -24,7 +24,9 @@ FORD's parser (`ford >= 7.0.5, < 8`). Python `>= 3.10`.
 - `fordoctest/loader.py` wraps FORD: `load_project_file` uses
   `ford.load_settings` + `ford.parse_arguments`; `load_fpm_project` uses
   `[extra.ford]` when present, otherwise builds `ProjectSettings` from the
-  standard fpm directories. Keep FORD API calls here.
+  standard fpm directories. `read_fpm_config` reads tool settings from
+  `[extra.fordoctest]` (alias `[extra.fordoxtest]`). Keep FORD API calls
+  here.
 - `fordoctest/core.py` — `FordDocumentationTester` takes an already-parsed
   `Project`; use `from_project_file()` or `from_fpm()`.
   - `find_issues()` returns every `DocumentationIssue`; `analyze()` raises one
@@ -32,12 +34,16 @@ FORD's parser (`ford >= 7.0.5, < 8`). Python `>= 3.10`.
   - Checks live in `_check_unit`, `_check_types`, `_check_interfaces`,
     `_check_procedures`; deduplicate by object id because FORD can expose the
     same submodule procedure twice.
+  - Use `_is_documented()` rather than `doc_list` directly: FORD moves
+    Doxygen `@brief` text into `meta.summary`, leaving `doc_list` empty.
   - Do not call `Project.correlate()`: it injects inherited/generated docs.
 - `fordoctest/errors.py` — `DocumentationIssue`, `DocumentationError`, and
   message constructors.
+- `fordoctest/console.py` — ANSI styling with no dependencies; auto mode
+  honours TTY detection, `NO_COLOR` and `TERM=dumb`.
 - `fordoctest/command_line.py` — splits fordoctest options manually and lets
   FORD parse the remaining arguments so FORD flags keep working. In FPM mode,
-  FORD flags are rejected.
+  FORD flags are rejected and `[extra.fordoctest]` supplies defaults.
 - `fordoctest/__main__.py` is a thin `SystemExit(main())` wrapper.
 
 ## Testing and fixtures

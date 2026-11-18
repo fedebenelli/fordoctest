@@ -5,7 +5,7 @@ Fortran documentation tester.
 
 import re
 from abc import ABC, abstractmethod
-from typing import Iterable, List
+from typing import Iterable, List, Optional
 
 from fordoctest.errors import (
     DocumentationError,
@@ -14,7 +14,7 @@ from fordoctest.errors import (
     undocumented,
     undocumented_argument,
 )
-from fordoctest.loader import load_project
+from fordoctest.loader import load_project, read_fpm_config
 
 # Conservative heuristic: only flag first words that are clearly not
 # imperative. Anything else is left alone to avoid false positives.
@@ -117,10 +117,19 @@ class FordDocumentationTester(DocumentationTester):
     def from_fpm(
         cls,
         path,
-        max_modules_per_file: int = 1,
-        check_imperative: bool = False,
+        max_modules_per_file: Optional[int] = None,
+        check_imperative: Optional[bool] = None,
     ) -> "FordDocumentationTester":
-        """Build a tester from an ``fpm.toml`` file or directory."""
+        """Build a tester from an ``fpm.toml`` file or directory.
+
+        Explicit arguments win; anything left as ``None`` falls back to
+        ``[extra.fordoctest]`` in the fpm manifest and then to the defaults.
+        """
+        config = read_fpm_config(path)
+        if max_modules_per_file is None:
+            max_modules_per_file = config.max_modules
+        if check_imperative is None:
+            check_imperative = config.check_imperative
         return cls(
             load_project(path, fpm=True),
             max_modules_per_file=max_modules_per_file,
@@ -206,7 +215,7 @@ class FordDocumentationTester(DocumentationTester):
         seen.add(key)
 
         parents = tuple(parents)
-        if not unit.doc_list:
+        if not _is_documented(unit):
             self._add(
                 issues,
                 seen,
@@ -248,7 +257,7 @@ class FordDocumentationTester(DocumentationTester):
                 continue
             seen.add(key)
 
-            if not derived_type.doc_list:
+            if not _is_documented(derived_type):
                 self._add(
                     issues,
                     seen,
@@ -260,7 +269,7 @@ class FordDocumentationTester(DocumentationTester):
 
             type_parents = (*parents, derived_type.name)
             for component in derived_type.variables:
-                if component.doc_list:
+                if _is_documented(component):
                     continue
                 self._add(
                     issues,
@@ -272,7 +281,7 @@ class FordDocumentationTester(DocumentationTester):
                 )
 
             for procedure in derived_type.boundprocs:
-                if procedure.doc_list:
+                if _is_documented(procedure):
                     continue
                 self._add(
                     issues,
@@ -305,7 +314,7 @@ class FordDocumentationTester(DocumentationTester):
             seen.add(key)
 
             name = interface.name or "<anonymous>"
-            if not interface.doc_list:
+            if not _is_documented(interface):
                 self._add(
                     issues,
                     seen,
@@ -323,7 +332,7 @@ class FordDocumentationTester(DocumentationTester):
             for procedure in procedures:
                 procedure_parents = (*parents, name)
                 for argument in getattr(procedure, "args", []):
-                    if argument.doc_list:
+                    if _is_documented(argument):
                         continue
                     self._add(
                         issues,
@@ -350,7 +359,7 @@ class FordDocumentationTester(DocumentationTester):
                 continue
             seen.add(key)
 
-            if not procedure.doc_list:
+            if not _is_documented(procedure):
                 self._add(
                     issues,
                     seen,
@@ -374,7 +383,7 @@ class FordDocumentationTester(DocumentationTester):
 
             procedure_parents = (*parents, procedure.name)
             for argument in getattr(procedure, "args", []):
-                if argument.doc_list:
+                if _is_documented(argument):
                     continue
                 self._add(
                     issues,
@@ -393,6 +402,17 @@ class FordDocumentationTester(DocumentationTester):
             return
         seen.add(key)
         issues.append(issue)
+
+
+def _is_documented(entity) -> bool:
+    """Return whether an entity carries documentation.
+
+    Doxygen ``@brief`` metadata is moved into ``meta.summary`` by FORD,
+    leaving ``doc_list`` empty, so both places must be considered.
+    """
+    if entity.doc_list:
+        return True
+    return bool(getattr(getattr(entity, "meta", None), "summary", None))
 
 
 def _first_documentation_word(doc_list) -> str:

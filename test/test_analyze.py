@@ -168,6 +168,36 @@ def test_first_documentation_word_handles_empty_and_markup():
     assert _first_documentation_word(["## `Compute` now"]) == "compute"
 
 
+def test_doxygen_style_documentation(make_project):
+    tester = analyzer(make_project, "doxygen_documented.f90")
+
+    assert tester.find_issues() == []
+
+
+def test_doxygen_brief_metadata_counts_as_documentation(make_project):
+    tester = analyzer(make_project, "doxygen_brief.f90")
+
+    assert tester.find_issues() == []
+
+
+def test_doxygen_param_is_required_for_arguments(make_project):
+    issues = analyzer(make_project, "doxygen_missing_param.f90").find_issues()
+
+    assert kinds(issues) == ["Argument"]
+    assert "'x'" in issues[0].message
+
+
+def test_multiple_fixture_files_are_all_analyzed(make_project):
+    tester = analyzer(
+        make_project,
+        ["documented_module.f90", "undocumented_program.f90"],
+    )
+
+    issues = tester.find_issues()
+    assert kinds(issues) == ["Program"]
+    assert "::main" in issues[0].message
+
+
 def test_documentation_error_accepts_strings_and_issues():
     string_error = DocumentationError("plain message")
     assert string_error.issues == ["plain message"]

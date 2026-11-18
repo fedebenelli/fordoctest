@@ -10,8 +10,16 @@ from typing import Dict, List, Optional, Sequence, Tuple
 import ford
 
 from fordoctest import __version__
+from fordoctest import console
 from fordoctest.core import FordDocumentationTester
-from fordoctest.loader import ProjectLoadError, load_project
+from fordoctest.loader import (
+    COLOR_MODES,
+    ProjectLoadError,
+    load_project,
+    read_fpm_config,
+)
+
+DEFAULT_MAX_MODULES = 1
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -37,14 +45,21 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--max-modules",
         type=int,
-        default=1,
+        default=None,
         metavar="N",
         help="maximum number of modules per source file (default: 1)",
     )
     parser.add_argument(
         "--check-imperative",
         action="store_true",
+        default=None,
         help="warn when procedure docs do not start with an imperative verb",
+    )
+    parser.add_argument(
+        "--color",
+        choices=COLOR_MODES,
+        default=None,
+        help="colourise output: auto, always or never (default: auto)",
     )
     parser.add_argument(
         "-q",
@@ -67,13 +82,21 @@ def _parse_max_modules(value: str) -> int:
         raise ValueError("--max-modules requires an integer") from error
 
 
+def _parse_color(value: str) -> str:
+    if value not in COLOR_MODES:
+        modes = ", ".join(COLOR_MODES)
+        raise ValueError(f"--color must be one of: {modes}")
+    return value
+
+
 def _parse_arguments(
     argv: Sequence[str],
 ) -> Tuple[Dict[str, object], List[str]]:
     """Split fordoctest options from arguments passed through to FORD."""
     options: Dict[str, object] = {
-        "max_modules": 1,
-        "check_imperative": False,
+        "max_modules": None,
+        "check_imperative": None,
+        "color": None,
         "fpm": False,
         "quiet": False,
     }
@@ -100,6 +123,16 @@ def _parse_arguments(
             continue
         if argument == "--check-imperative":
             options["check_imperative"] = True
+            index += 1
+            continue
+        if argument == "--color":
+            if index + 1 >= len(argv):
+                raise ValueError("--color requires a value")
+            options["color"] = _parse_color(argv[index + 1])
+            index += 2
+            continue
+        if argument.startswith("--color="):
+            options["color"] = _parse_color(argument.split("=", 1)[1])
             index += 1
             continue
         if argument == "--fpm":
@@ -157,8 +190,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         print(f"fordoctest: error: {error}", file=sys.stderr)
         return 2
 
-    max_modules = int(options["max_modules"])
-    if max_modules < 0:
+    if options["max_modules"] is not None and options["max_modules"] < 0:
         print(
             "fordoctest: error: --max-modules must be zero or greater",
             file=sys.stderr,
@@ -169,14 +201,16 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     if not uses_fpm and len(rest) == 1 and _is_fpm_input(rest[0]):
         uses_fpm = True
 
-    output = (
+    project = None
+    config = None
+    quiet_output = (
         contextlib.redirect_stdout(io.StringIO())
         if options["quiet"]
         else contextlib.nullcontext()
     )
 
     try:
-        with output:
+        with quiet_output:
             if uses_fpm:
                 if len(rest) != 1:
                     print(
@@ -186,6 +220,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
                     )
                     return 2
                 project = load_project(rest[0], fpm=True)
+                config = read_fpm_config(rest[0])
             else:
                 if not rest:
                     print(
@@ -206,25 +241,41 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         print(f"fordoctest: error: {error}", file=sys.stderr)
         return 2
 
+    max_modules = options["max_modules"]
+    if max_modules is None:
+        max_modules = config.max_modules if config else DEFAULT_MAX_MODULES
+
+    check_imperative = options["check_imperative"]
+    if check_imperative is None:
+        check_imperative = config.check_imperative if config else False
+
+    color_mode = options["color"]
+    if color_mode is None:
+        color_mode = config.color if config else "auto"
+
+    out = console.stdout(color_mode)
+    err = console.stderr(color_mode)
+
     tester = FordDocumentationTester(
         project,
-        max_modules_per_file=max_modules,
-        check_imperative=bool(options["check_imperative"]),
+        max_modules_per_file=int(max_modules),
+        check_imperative=bool(check_imperative),
     )
     issues = tester.find_issues()
 
     if issues:
         for issue in issues:
-            print(issue.message, file=sys.stderr)
+            print(err.error(issue.message), file=sys.stderr)
         if not options["quiet"]:
             print(
-                f"\n{len(issues)} documentation issue(s) found.",
+                "\n"
+                + err.heading(f"{len(issues)} documentation issue(s) found."),
                 file=sys.stderr,
             )
         return 1
 
     if not options["quiet"]:
-        print("No documentation issues found.")
+        print(out.success("No documentation issues found."))
     return 0
 
 

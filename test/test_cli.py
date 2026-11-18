@@ -158,3 +158,64 @@ def test_cli_double_dash(make_project):
     project_file = make_project("documented_module.f90")
 
     assert main(["--", str(project_file)]) == 0
+
+
+def test_cli_fpm_uses_config(make_project):
+    project_file = make_project("multiple_modules.f90")
+    (project_file.parent / "fpm.toml").write_text(
+        'name = "configured"\n\n' "[extra.fordoxtest]\nmax_modules = 2\n",
+        encoding="utf-8",
+    )
+
+    assert main([str(project_file.parent)]) == 0
+
+
+def test_cli_fpm_config_rejects_unknown_key(make_project, capsys):
+    project_file = make_project("documented_module.f90")
+    (project_file.parent / "fpm.toml").write_text(
+        'name = "configured"\n\n' "[extra.fordoxtest]\nmax_module = 2\n",
+        encoding="utf-8",
+    )
+
+    assert main([str(project_file.parent)]) == 2
+    captured = capsys.readouterr()
+    assert "Unknown key" in captured.err
+
+
+def test_cli_color_always(make_project, capsys):
+    project_file = make_project("undocumented_for_cli.f90")
+
+    assert main(["--color", "always", str(project_file)]) == 1
+    captured = capsys.readouterr()
+    assert "\033[31m" in captured.err
+    assert "\033[1m\033[33m" in captured.err
+
+
+def test_cli_color_always_success(make_project, capsys):
+    project_file = make_project("documented_module.f90")
+
+    assert main(["--color=always", str(project_file)]) == 0
+    captured = capsys.readouterr()
+    assert "\033[32m" in captured.out
+
+
+def test_cli_color_never(make_project, capsys):
+    project_file = make_project("undocumented_for_cli.f90")
+
+    assert main(["--color", "never", str(project_file)]) == 1
+    captured = capsys.readouterr()
+    assert "\033[" not in captured.err
+
+
+def test_cli_color_requires_value(capsys):
+    assert main(["--color"]) == 2
+    captured = capsys.readouterr()
+    assert "requires a value" in captured.err
+
+
+def test_cli_rejects_bad_color(make_project, capsys):
+    project_file = make_project("documented_module.f90")
+
+    assert main(["--color", "rainbow", str(project_file)]) == 2
+    captured = capsys.readouterr()
+    assert "must be one of" in captured.err
