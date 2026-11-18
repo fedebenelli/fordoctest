@@ -1,5 +1,10 @@
 # fordoctest
 
+[![CI](https://github.com/fedebenelli/fordoctest/actions/workflows/ci.yml/badge.svg)](https://github.com/fedebenelli/fordoctest/actions/workflows/ci.yml)
+[![Python](https://img.shields.io/badge/python-3.10%20%7C%203.11-blue)](https://www.python.org/)
+[![Fortran](https://img.shields.io/badge/fortran-2008%2B-orange)](https://fortran-lang.org/)
+[![Coverage](https://img.shields.io/badge/coverage-97%25-brightgreen)](#development)
+
 Assure Fortran documentation consistency.
 
 `fordoctest` uses [FORD](https://forddocs.readthedocs.io/) to parse a Fortran
