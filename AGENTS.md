@@ -63,7 +63,7 @@ FORD's parser (`ford >= 7.0.5, < 8`). Python `>= 3.10`.
 - Release: push a `v*` tag. PyPI publishing uses trusted publishing and
   requires the `pypi` environment/trusted publisher to be configured in the
   PyPI project settings. PyPI name: `fordoctest`; git remote:
-  `fedebenelli/fordoctester`.
+  `fedebenelli/fordoctest`.
 - README and `[project.urls]` should match the actual repository/name.
 
 ## Do not edit

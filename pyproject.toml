@@ -72,9 +72,9 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/fedebenelli/fordoctester"
-Repository = "https://github.com/fedebenelli/fordoctester"
-Issues = "https://github.com/fedebenelli/fordoctester/issues"
+Homepage = "https://github.com/fedebenelli/fordoctest"
+Repository = "https://github.com/fedebenelli/fordoctest"
+Issues = "https://github.com/fedebenelli/fordoctest/issues"
 
 [project.scripts]
 fordoctest = "fordoctest.command_line:main"
